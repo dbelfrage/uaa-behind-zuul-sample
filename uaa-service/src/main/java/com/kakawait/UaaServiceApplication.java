@@ -65,13 +65,22 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
-            http.formLogin().loginPage("/login").permitAll().and().authorizeRequests()
-                .anyRequest().authenticated();
+            http.formLogin()
+                    .loginPage("/login").permitAll()
+                    .and().authorizeRequests()
+                    .anyRequest().authenticated();
         }
 
         @Override
         protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-            auth.parentAuthenticationManager(authenticationManager);
+            auth
+                    .inMemoryAuthentication()
+                    .withUser("user").password("password")
+                    .authorities("USER").roles("USER")
+                    .and()
+                    .withUser("admin").password("admin")
+                    .authorities("ADMIN").roles("ADMIN");
+//            auth.parentAuthenticationManager(authenticationManager);
         }
     }
 
@@ -96,7 +105,7 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
             clients.inMemory()
                    .withClient("acme")
                    .secret("acmesecret")
-                   .authorizedGrantTypes("authorization_code", "refresh_token","password")
+                   .authorizedGrantTypes("implicit", "authorization_code", "refresh_token","password")
                    .scopes("openid");
         }
 

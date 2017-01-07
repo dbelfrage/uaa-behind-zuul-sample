@@ -25,6 +25,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
+        <docker-maven-plugin.version>0.17.1</docker-maven-plugin.version>
+        <docker.port>80</docker.port>
     </properties>
 
     <dependencyManagement>
@@ -42,67 +44,158 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!--<plugin>-->
+                <!--<inherited>false</inherited>-->
+                <!--<groupId>org.springframework.boot</groupId>-->
+                <!--<artifactId>spring-boot-maven-plugin</artifactId>-->
+                <!--</plugin>-->
+                <!--<plugin>-->
+                <!--<artifactId>maven-resources-plugin</artifactId>-->
+                <!--<version>3.0.1</version>-->
+                <!--<executions>-->
+                <!--<execution>-->
+                <!--<id>prepare-dockerfile</id>-->
+                <!--<phase>validate</phase>-->
+                <!--<goals>-->
+                <!--<goal>copy-resources</goal>-->
+                <!--</goals>-->
+                <!--<configuration>-->
+                <!--<outputDirectory>${project.build.directory}/docker</outputDirectory>-->
+                <!--<resources>-->
+                <!--<resource>-->
+                <!--<directory>${project.basedir}/src/main/docker</directory>-->
+                <!--<filtering>true</filtering>-->
+                <!--</resource>-->
+                <!--</resources>-->
+                <!--</configuration>-->
+                <!--</execution>-->
+                <!--</executions>-->
+                <!--</plugin>-->
+                <!--<plugin>-->
+                <!--<groupId>com.spotify</groupId>-->
+                <!--<artifactId>docker-maven-plugin</artifactId>-->
+                <!--<version>0.4.13</version>-->
+                <!--<executions>-->
+                <!--<execution>-->
+                <!--<id>build-image</id>-->
+                <!--<phase>package</phase>-->
+                <!--<goals>-->
+                <!--<goal>build</goal>-->
+                <!--</goals>-->
+                <!--</execution>-->
+                <!--</executions>-->
+                <!--<configuration>-->
+                <!--<imageName>kakawait/${project.artifactId}</imageName>-->
+                <!--<imageTags>-->
+                <!--<imageTag>${project.version}</imageTag>-->
+                <!--<imageTag>latest</imageTag>-->
+                <!--</imageTags>-->
+                <!--<forceTags>true</forceTags>-->
+                <!--<dockerDirectory>${project.build.directory}/docker</dockerDirectory>-->
+                <!--<resources>-->
+                <!--<resource>-->
+                <!--<targetPath>/</targetPath>-->
+                <!--<directory>${project.build.directory}</directory>-->
+                <!--<include>${project.build.finalName}.jar</include>-->
+                <!--<filtering>true</filtering>-->
+                <!--</resource>-->
+                <!--</resources>-->
+                <!--</configuration>-->
+                <!--</plugin>-->
                 <plugin>
-                    <inherited>false</inherited>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-maven-plugin</artifactId>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.0.1</version>
-                    <executions>
-                        <execution>
-                            <id>prepare-dockerfile</id>
-                            <phase>validate</phase>
-                            <goals>
-                                <goal>copy-resources</goal>
-                            </goals>
-                            <configuration>
-                                <outputDirectory>${project.build.directory}/docker</outputDirectory>
-                                <resources>
-                                    <resource>
-                                        <directory>${project.basedir}/src/main/docker</directory>
-                                        <filtering>true</filtering>
-                                    </resource>
-                                </resources>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>
-                <plugin>
-                    <groupId>com.spotify</groupId>
+                    <groupId>io.fabric8</groupId>
                     <artifactId>docker-maven-plugin</artifactId>
-                    <version>0.4.13</version>
+                    <version>${docker-maven-plugin.version}</version>
                     <executions>
                         <execution>
-                            <id>build-image</id>
-                            <phase>package</phase>
+                            <id>buildImage</id>
                             <goals>
-                                <goal>build</goal>
+                                <goal>build-nofork</goal>
                             </goals>
+                            <phase>install</phase>
                         </execution>
                     </executions>
                     <configuration>
-                        <imageName>kakawait/${project.artifactId}</imageName>
-                        <imageTags>
-                            <imageTag>${project.version}</imageTag>
-                            <imageTag>latest</imageTag>
-                        </imageTags>
-                        <forceTags>true</forceTags>
-                        <dockerDirectory>${project.build.directory}/docker</dockerDirectory>
-                        <resources>
-                            <resource>
-                                <targetPath>/</targetPath>
-                                <directory>${project.build.directory}</directory>
-                                <include>${project.build.finalName}.jar</include>
-                                <filtering>true</filtering>
-                            </resource>
-                        </resources>
+                        <images>
+                            <image>
+                                <alias>${project.name}</alias>
+                                <name>kakawait/${project.artifactId}</name>
+                                <build>
+                                    <from>java:8-jre-alpine</from>
+                                    <tags>
+                                        <tag>latest</tag>
+                                    </tags>
+                                    <ports>
+                                        <port>${docker.port}</port>
+                                    </ports>
+                                    <volumes>
+                                        <volume>/tmp</volume>
+                                    </volumes>
+                                    <entryPoint>
+                                        <exec>
+                                            <arg>java</arg>
+                                            <arg>-Djava.security.egd=file:/dev/./urandom</arg>
+                                            <arg>-Dspring.profiles.active=docker</arg>
+                                            <arg>-jar</arg>
+                                            <arg>/app.jar</arg>
+                                        </exec>
+                                    </entryPoint>
+                                    <assembly>
+                                        <basedir>/</basedir>
+                                        <inline>
+                                            <dependencySets>
+                                                <dependencySet>
+                                                    <useProjectArtifact>true</useProjectArtifact>
+                                                    <includes>
+                                                        <include>${project.groupId}:${project.artifactId}</include>
+                                                    </includes>
+                                                    <outputDirectory>.</outputDirectory>
+                                                    <outputFileNameMapping>app.jar</outputFileNameMapping>
+                                                </dependencySet>
+                                            </dependencySets>
+                                        </inline>
+                                    </assembly>
+                                    <runCmds>
+                                        <runCmd>sh -c 'touch /app.jar'</runCmd>
+                                    </runCmds>
+                                </build>
+                            </image>
+                        </images>
                     </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
     </build>
+
+    <!--<profiles>-->
+    <!--<profile>-->
+    <!--<id>std</id>-->
+    <!--<activation>-->
+    <!--<file>-->
+    <!--<exists>src</exists>-->
+    <!--</file>-->
+    <!--</activation>-->
+    <!--<build>-->
+    <!--<plugins>-->
+    <!---->
+    <!--</plugins>-->
+    <!--</build>-->
+    <!--</profile>-->
+    <!--</profiles>-->
+
+    <!--<build>-->
+        <!--<plugins>-->
+            <!--<plugin>-->
+                <!--<groupId>org.springframework.boot</groupId>-->
+                <!--<artifactId>spring-boot-maven-plugin</artifactId>-->
+            <!--</plugin>-->
+            <!--<plugin>-->
+                <!--<groupId>io.fabric8</groupId>-->
+                <!--<artifactId>docker-maven-plugin</artifactId>-->
+                <!--<version>${docker-maven-plugin.version}</version>-->
+            <!--</plugin>-->
+        <!--</plugins>-->
+    <!--</build>-->
 
     <repositories>
         <repository>
