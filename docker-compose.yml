@@ -20,7 +20,7 @@ services:
       SERVICE_PORT: 8765
       REGISTRY_URL: http://service-registry:8761/eureka
     ports:
-      - 8765:8765
+      - "8765:8765"
     links:
       - service-registry:service-registry
       - uaa-service:uaa-service
@@ -33,4 +33,14 @@ services:
     links:
       - service-registry:service-registry
       - uaa-service:uaa-service
+
+  client:
+    image: kakawait/client
+    environment:
+      REGISTRY_URL: http://service-registry:8761/eureka
+    links:
+      - service-registry:service-registry
+      - uaa-service:uaa-service
+    ports:
+      - "8080:8080"
 
