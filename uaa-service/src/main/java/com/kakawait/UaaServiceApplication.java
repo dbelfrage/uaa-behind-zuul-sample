@@ -1,6 +1,7 @@
 package com.kakawait;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.ManagementServerProperties;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +17,8 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
@@ -56,12 +59,16 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
         registry.addViewController("/oauth/confirm_access").setViewName("authorize");
     }
 
+
     @Order(ManagementServerProperties.ACCESS_OVERRIDE_ORDER)
     @Configuration
     protected static class LoginConfiguration extends WebSecurityConfigurerAdapter {
 
-        @Autowired
-        private AuthenticationManager authenticationManager;
+        @Override
+        @Bean
+        public AuthenticationManager authenticationManagerBean() throws Exception {
+            return super.authenticationManagerBean();
+        }
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
@@ -75,12 +82,9 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
         protected void configure(AuthenticationManagerBuilder auth) throws Exception {
             auth
                     .inMemoryAuthentication()
-                    .withUser("user").password("password")
-                    .authorities("USER").roles("USER")
+                    .withUser("user").password("password").roles("USER")
                     .and()
-                    .withUser("admin").password("admin")
-                    .authorities("ADMIN").roles("ADMIN");
-//            auth.parentAuthenticationManager(authenticationManager);
+                    .withUser("admin").password("admin").roles("ADMIN");
         }
     }
 
@@ -89,6 +93,7 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
     protected static class AuthorizationServerConfiguration extends AuthorizationServerConfigurerAdapter {
 
         @Autowired
+        @Qualifier("authenticationManagerBean")
         private AuthenticationManager authenticationManager;
 
         @Bean
@@ -103,10 +108,10 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
         @Override
         public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
             clients.inMemory()
-                   .withClient("acme")
-                   .secret("acmesecret")
-                   .authorizedGrantTypes("implicit", "authorization_code", "refresh_token","password")
-                   .scopes("openid");
+                    .withClient("acme")
+                    .secret("acmesecret")
+                    .authorizedGrantTypes(/*"implicit", */"authorization_code", "refresh_token", "password")
+                    .scopes("openid");
         }
 
         @Override
