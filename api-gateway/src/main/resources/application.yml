@@ -20,6 +20,10 @@ eureka:
 zuul:
   routes:
     dummy-service: /dummy/**
+    user-service:
+      sensitiveHeaders:
+      path: /user/register/**
+      stripPrefix: false
     uaa-service:
       sensitiveHeaders:
       path: /uaa/**

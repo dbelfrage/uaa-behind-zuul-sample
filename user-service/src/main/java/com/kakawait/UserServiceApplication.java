@@ -9,6 +9,7 @@ import org.springframework.cloud.netflix.feign.EnableFeignClients;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -39,12 +40,12 @@ public class UserServiceApplication {
     @Controller
     public static class UserController {
 
-        @RequestMapping(value = "/user/register/{username}/{password}/{role}", method = RequestMethod.POST)
-        public UserModel registerNewUser(@PathVariable String username, @PathVariable String password, @PathVariable String role) {
-            UserModel userModel = new UserModel(CURR.getAndIncrement(), username, password, role);
-            REGISTERED_USERS.put(username, userModel);
+        @RequestMapping(value = "/user/register", method = RequestMethod.POST)
+        public ResponseEntity<UserModel> registerNewUser(@RequestBody NewUser newUser) {
+            UserModel userModel = new UserModel(CURR.getAndIncrement(), newUser.getUsername(), newUser.getPassword(), newUser.getRole());
+            REGISTERED_USERS.putIfAbsent(newUser.getUsername(), userModel);
             LOG.info("UserServiceApplication.registerNewUser: " + REGISTERED_USERS);
-            return userModel;
+            return ResponseEntity.ok(userModel);
         }
 
         @RequestMapping(value = "/user/{username}", method = RequestMethod.GET)
