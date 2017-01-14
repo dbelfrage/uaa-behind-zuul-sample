@@ -34,6 +34,15 @@ services:
       - service-registry:service-registry
       - uaa-service:uaa-service
 
+  user-service:
+    image: kakawait/user-service
+    environment:
+      SERVICE_PORT: 8871
+      REGISTRY_URL: http://service-registry:8761/eureka
+    links:
+      - service-registry:service-registry
+      - uaa-service:uaa-service
+
   client:
     image: kakawait/client
     environment:

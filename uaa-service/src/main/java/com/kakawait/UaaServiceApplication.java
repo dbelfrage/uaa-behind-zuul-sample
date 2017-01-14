@@ -1,5 +1,6 @@
 package com.kakawait;
 
+import com.kakawait.service.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
@@ -7,18 +8,18 @@ import org.springframework.boot.actuate.autoconfigure.ManagementServerProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.netflix.feign.EnableFeignClients;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.encoding.PlaintextPasswordEncoder;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
@@ -26,7 +27,6 @@ import org.springframework.security.oauth2.config.annotation.web.configurers.Aut
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.KeyStoreKeyFactory;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.filter.ForwardedHeaderFilter;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
@@ -39,6 +39,7 @@ import java.security.KeyPair;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableWebSecurity
+@EnableFeignClients
 public class UaaServiceApplication extends WebMvcConfigurerAdapter {
 
     public static void main(String[] args) {
@@ -64,6 +65,9 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
     @Configuration
     protected static class LoginConfiguration extends WebSecurityConfigurerAdapter {
 
+        @Autowired
+        private CustomUserDetailsService customUserDetailsService;
+
         @Override
         @Bean
         public AuthenticationManager authenticationManagerBean() throws Exception {
@@ -72,25 +76,28 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
-            http.formLogin()
-                    .loginPage("/login").permitAll()
-                    .and().authorizeRequests()
-                    .anyRequest().authenticated();
+            http
+                 .formLogin().loginPage("/login").permitAll()
+               .and().authorizeRequests()
+                 .anyRequest().authenticated();
         }
 
         @Override
         protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-            auth
-                    .inMemoryAuthentication()
-                    .withUser("user").password("password").roles("USER")
-                    .and()
-                    .withUser("admin").password("admin").roles("ADMIN");
+            auth.userDetailsService(customUserDetailsService).passwordEncoder(new PlaintextPasswordEncoder());
+//                    .inMemoryAuthentication()
+//                    .withUser("user").password("password").roles("USER")
+//                    .and()
+//                    .withUser("admin").password("admin").roles("ADMIN");
         }
     }
 
     @Configuration
     @EnableAuthorizationServer
     protected static class AuthorizationServerConfiguration extends AuthorizationServerConfigurerAdapter {
+
+        @Autowired
+        private CustomUserDetailsService customUserDetailsService;
 
         @Autowired
         @Qualifier("authenticationManagerBean")
@@ -116,7 +123,10 @@ public class UaaServiceApplication extends WebMvcConfigurerAdapter {
 
         @Override
         public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-            endpoints.authenticationManager(authenticationManager).accessTokenConverter(jwtAccessTokenConverter());
+            endpoints
+                    .authenticationManager(authenticationManager)
+                    .userDetailsService(customUserDetailsService)
+                    .accessTokenConverter(jwtAccessTokenConverter());
         }
 
         @Override
