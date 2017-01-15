@@ -1,13 +1,19 @@
 package de.hska.iwi.client.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.oauth2.client.EnableOAuth2Sso;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AnonymousAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
+import org.springframework.security.oauth2.client.OAuth2RestOperations;
+import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.security.oauth2.client.resource.OAuth2ProtectedResourceDetails;
+import org.springframework.security.oauth2.client.token.AccessTokenRequest;
+import org.springframework.security.oauth2.client.token.DefaultAccessTokenRequest;
+import org.springframework.security.oauth2.client.token.grant.password.ResourceOwnerPasswordResourceDetails;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableOAuth2Client;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Adelheid Knodel
@@ -16,27 +22,46 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.E
 //    an OAuth2 client authentication filter is added to the Spring http security chain. 
 //    It can be used to authenticate users and request access code for resource access.
 @Configuration
-@EnableOAuth2Sso
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableOAuth2Client
+public class SecurityConfig {
 
-    @Autowired
-    protected void init(AuthenticationManagerBuilder builder) {
-        if (!builder.isConfigured()) {
-            builder.authenticationProvider(new AnonymousAuthenticationProvider("default"));
-        }
+    @Value("${security.oauth2.client.accessTokenUri}")
+    private String tokenUrl;
+
+    @Value("${security.oauth2.client.userAuthorizationUri}")
+    private String authorizeUrl;
+
+    @Value("${security.oauth2.client.clientId}")
+    private String cliendId;
+
+    @Value("${security.oauth2.client.clientSecret}")
+    private String clientSecret;
+
+
+    // TODO does Spring support me this out of the box?
+    // Cuz example is from an older version 1.2.1
+    @Bean
+    protected OAuth2ProtectedResourceDetails resource() {
+
+        ResourceOwnerPasswordResourceDetails resource = new ResourceOwnerPasswordResourceDetails();
+
+        List<String> scopes = new ArrayList<>(2);
+        scopes.add("openid");
+        resource.setAccessTokenUri(tokenUrl);
+        resource.setClientId(cliendId);
+        resource.setClientSecret(clientSecret);
+        resource.setGrantType("password");
+        resource.setScope(scopes);
+
+        resource.setUsername("admin"); // TODO add from login form
+        resource.setPassword("admin");
+
+        return resource;
     }
 
-
-    /*
-       The "/", "/login" and "/webjars/**" paths are configured to not require any authentication.
-       All other paths must be authenticated.
-     */
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http.antMatcher("/**")
-                .authorizeRequests()
-                .antMatchers("/", "/login**", "/webjars/**").permitAll()
-                .anyRequest().authenticated();
+    @Bean
+    public OAuth2RestOperations restTemplate() {
+        AccessTokenRequest atr = new DefaultAccessTokenRequest();
+        return new OAuth2RestTemplate(resource(), new DefaultOAuth2ClientContext(atr));
     }
-
 }

@@ -49,7 +49,7 @@ services:
       REGISTRY_URL: http://service-registry:8761/eureka
     links:
       - service-registry:service-registry
-      - uaa-service:uaa-service
+      - api-gateway:api-gateway
     ports:
       - "8080:8080"
 
