@@ -95,7 +95,10 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
             private final Pattern allowedMethods = Pattern.compile("^(GET|HEAD|OPTIONS|TRACE)$");
 
             // Disable CSFR protection on the following urls:
-            private final AntPathRequestMatcher[] requestMatchers = { new AntPathRequestMatcher("/uaa/**"), new AntPathRequestMatcher("/user/register") };
+            private final AntPathRequestMatcher[] requestMatchers = {
+                                    new AntPathRequestMatcher("/uaa/**"),
+                                    new AntPathRequestMatcher("/user/register")
+            };
 
             @Override
             public boolean matches(HttpServletRequest request) {

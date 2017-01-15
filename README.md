@@ -15,10 +15,35 @@ Quick&dirty sample to expose how to configure `AuthorizationServer` (*UAA*) behi
 This way to do may not work for all kind of configuration (I do not test without `JWT` and `prefer-token-info: true`)
 
 ## Usage
-
+### Browser
 Please deploy every services using [*docker way*](#docker) or [*maven way*](#maven), then simply load `http://localhost:8765/dummy` on your favorite browser.
 
-Default user/password is `user/password`
+There are 2 users with user/password 
+1. `user/password` with Role `USER`
+2. `admin/admin` with Role `ADMIN`
+
+**NOTES:**
+- The resource `http://localhost:8765/dummy` is available for both user but `http://localhost:8765/dummy/secret` is only accessible for user having the `ADMIN` role.
+- The grant type `authorization_code` is used in this case.
+
+### Command line
+1. Obtain the access token and refresh token via one of the 3 equal methods
+  - `curl -v --insecure -H "Authorization: Basic $(echo -n 'acme:acmesecret' | base64)" http://localhost:8765/uaa/oauth/token -d grant_type=password -d username=user -d password=password`
+  - `curl -v --insecure -u acme:acmesecret http://localhost:8765/uaa/oauth/token -d grant_type=password -d username=user -d password=password`
+  - `curl -v --insecure http://acme:acmesecret@localhost:8765/uaa/oauth/token -d grant_type=password -d username=user -d password=password`
+  
+2. Save the obtained access token in the `ACCESS_TOKEN` env var:
+`export ACCESS_TOKEN=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0ODQ0ODExM...`
+
+3. Access the protected resources:
+  - `curl -v -H 'Content-type: application/json' -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8765/dummy/`
+  - For `ADMIN` only: `curl -v -H 'Content-type: application/json' -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8765/dummy/secret`. Otherwise you will get a `404`.
+
+**NOTES:**
+- The resource `http://localhost:8765/dummy` is available for both user but `http://localhost:8765/dummy/secret` is only accessible for user having the `ADMIN` role.
+- The grant type `passowrd` is used in this case.
+- You can also create a new user via `curl 'http://localhost:8765/user/register' -i -X POST -H 'Content-Type: application/json' -d '{"username":"myNewUser", "password":"p44rd","role":"ADMIN"}'`. 
+ATM it's store in a Map internally, so a restart of the `user-service` will delete the user again. 
 
 ### Docker
 
@@ -28,10 +53,10 @@ Start building docker images for every services, simply run following command on
 mvn clean package -Pdocker
 ```
 
-Launch services using `docker-compose`
+Launch services using `docker-compose` and remove old images of containers
 
 ```shell
-docker-compose up -d
+docker-compose up -d --remove-orphans
 ```
 
 ### Maven
@@ -70,35 +95,44 @@ On this case I can't use `http://localhost:${server.port}/uaa/oauth/authorize` b
 Flow will look like following
 
 ```
-Browser                             Zuul                               UAA
-   │        /dummy                   │                                  │
-   ├────────────────────────────────>│                                  │
-   │  Location:http://ZUUL/login     │                                  │
-   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │
-   │        /login                   │                                  │
-   ├────────────────────────────────>│                                  │
-   │  Location:/uaa/oauth/authorize  │                                  │
-   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │
-   │     /uaa/oauth/authorize        │                                  │
-   ├────────────────────────────────>│                                  │
-   │                                 │      /uaa/oauth/authorize        │
-   │                                 ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│
-   │                                 │                                  ├──┐
-   │                                 │                                  │  │ Not authorize
-   │                                 │                                  │<─┘
-   │                                 │  Location:http://ZUUL/uaa/login  │
-   │                                 │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
-   │                                 │                                  │
-   │ Location:http://ZUUL/uaa/login  │                                  │
-   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │
-   │       /uaa/login                │                                  │
-   ├────────────────────────────────>│                                  │
-   │                                 │            /uaa/login            │
-   │                                 ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│
-   │                                 │           LOGIN FORM             │
-   │                                 │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
-   │           LOGIN FORM            │                                  │
-   │<────────────────────────────────┤                                  │
+Browser                             Zuul                               UAA                               USER     
+   │        /dummy                   │                                  │                                  │
+   ├────────────────────────────────>│                                  │                                  │
+   │  Location:http://ZUUL/login     │                                  │                                  │
+   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │                                  │
+   │        /login                   │                                  │                                  │
+   ├────────────────────────────────>│                                  │                                  │
+   │  Location:/uaa/oauth/authorize  │                                  │                                  │
+   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │                                  │
+   │     /uaa/oauth/authorize        │                                  │                                  │
+   ├────────────────────────────────>│                                  │                                  │
+   │                                 │      /uaa/oauth/authorize        │                                  │
+   │                                 ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│                                  │
+   │                                 │                                  ├──┐                               |
+   │                                 │                                  │  │ Not authorize                 │
+   │                                 │                                  │<─┘                               │
+   │                                 │                                  │                                  │
+   │                                 │  Location:http://ZUUL/uaa/login  │                                  │
+   │                                 │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  |
+   │                                 │                                  │                                  │
+   │ Location:http://ZUUL/uaa/login  │                                  │                                  │
+   │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  │                                  │
+   │       /uaa/login                │                                  │                                  │
+   ├────────────────────────────────>│                                  │                                  │
+   │                                 │            /uaa/login            │                                  │
+   │                                 ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│                                  │
+   │                                 │           LOGIN FORM             │                                  │
+   │                                 │<┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤                                  |
+   │           LOGIN FORM            │                                  │                                  │
+   │<────────────────────────────────┤                                  │                                  │
+   │ {"user":"xx", "password":"yy"}  |                                  │                                  │
+   │-───────────────────────────────>|                                  │                                  │
+   │                                 |                                  │                                  │
+   │                                 |┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│                                  |
+   │                                 |                                  │       /user/{username}           │
+   │                                 |                                  │┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄>│
+   │                                 |                                  │                                  │
+   │                                 |                                  │                                  │
 ```
 
 Take attention on second redirection, location is using path (not at browser level).
@@ -146,7 +180,10 @@ private RequestMatcher csrfRequestMatcher() {
         private final Pattern allowedMethods = Pattern.compile("^(GET|HEAD|OPTIONS|TRACE)$");
 
         // Disable CSFR protection on the following urls:
-        private final AntPathRequestMatcher[] requestMatchers = { new AntPathRequestMatcher("/uaa/**") };
+        private final AntPathRequestMatcher[] requestMatchers = {
+                                  new AntPathRequestMatcher("/uaa/**"),
+                                  new AntPathRequestMatcher("/user/register") 
+        };
 
         @Override
         public boolean matches(HttpServletRequest request) {
@@ -165,12 +202,12 @@ private RequestMatcher csrfRequestMatcher() {
 }
 ```
 
-### [`Zuul`] Authorize request to `AuthorizationServer`
+### [`Zuul`] Authorize request to `AuthorizationServer` and `User-Service` for registration
 
 Ok should I really need to explain why?
 
 ```
-http.authorizeRequests().antMatchers("/uaa/**", "/login").permitAll()
+http.authorizeRequests().antMatchers("/uaa/**", "/login", "/user/register").permitAll()
 ```
 
 **ATTENTION** do not use `"/uaa/**"` authorize only necessary API (I was to lazy)
