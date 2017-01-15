@@ -40,8 +40,8 @@ public class SecurityConfig {
 
     // TODO does Spring support me this out of the box?
     // Cuz example is from an older version 1.2.1
-    @Bean
-    protected OAuth2ProtectedResourceDetails resource() {
+//    @Bean
+    private OAuth2ProtectedResourceDetails resource(String username, String password) {
 
         ResourceOwnerPasswordResourceDetails resource = new ResourceOwnerPasswordResourceDetails();
 
@@ -53,15 +53,15 @@ public class SecurityConfig {
         resource.setGrantType("password");
         resource.setScope(scopes);
 
-        resource.setUsername("admin"); // TODO add from login form
-        resource.setPassword("admin");
+        resource.setUsername(username);
+        resource.setPassword(password);
 
         return resource;
     }
 
-    @Bean
-    public OAuth2RestOperations restTemplate() {
+//    @Bean
+    public OAuth2RestOperations restTemplate(String username, String password) {
         AccessTokenRequest atr = new DefaultAccessTokenRequest();
-        return new OAuth2RestTemplate(resource(), new DefaultOAuth2ClientContext(atr));
+        return new OAuth2RestTemplate(resource(username, password), new DefaultOAuth2ClientContext(atr));
     }
 }
